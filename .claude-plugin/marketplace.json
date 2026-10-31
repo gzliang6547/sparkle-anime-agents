@@ -1,0 +1,5 @@
+{
+  "name": "sparkle-anime-agents",
+  "owner": { "name": "Zhen Liang" },
+  "plugins": [{ "name": "sparkle-progress", "source": "./" }]
+}

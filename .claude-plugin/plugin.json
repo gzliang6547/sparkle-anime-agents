@@ -1,0 +1,6 @@
+{
+  "name": "sparkle-progress",
+  "version": "0.4.0",
+  "description": "Restyles the Simple Progress Bars band: a colored pill with a sparkly track, percent and a hopping pixel mascot. Agent cards draw anime characters by model: Opus as Naruto, Sonnet as Demon Slayer, Haiku as One Piece.",
+  "types": "./types/index.d.ts"
+}
