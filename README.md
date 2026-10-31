@@ -1,5 +1,7 @@
 # sparkle-progress
 
+![The Agents pane with subagents drawn as anime characters, and the full cast for Opus, Sonnet and Haiku](assets/preview.png)
+
 A Claude Code mod that adds some sparkle to long-running work:
 
 - **Sparkly progress pills.** The progress band that `claude-progress` drives (from the Simple Progress Bars plugin) is redrawn as colored pills with a twinkling track, a percent, a hopping pixel mascot and a time-left estimate.

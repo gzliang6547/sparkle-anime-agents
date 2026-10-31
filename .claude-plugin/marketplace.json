@@ -1,5 +1,6 @@
 {
   "name": "sparkle-anime-agents",
   "owner": { "name": "Zhen Liang" },
+  "description": "Sparkly progress pills and an Agents pane where Claude Code subagents appear as anime characters.",
   "plugins": [{ "name": "sparkle-progress", "source": "./" }]
 }

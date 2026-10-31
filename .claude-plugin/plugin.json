@@ -1,6 +1,11 @@
 {
   "name": "sparkle-progress",
-  "version": "0.4.0",
+  "displayName": "Sparkle Anime Agents",
+  "version": "0.4.1",
+  "author": { "name": "Zhen Liang", "url": "https://github.com/gzliang6547" },
+  "homepage": "https://github.com/gzliang6547/sparkle-anime-agents",
+  "repository": "https://github.com/gzliang6547/sparkle-anime-agents",
+  "license": "MIT",
   "description": "Restyles the Simple Progress Bars band: a colored pill with a sparkly track, percent and a hopping pixel mascot. Agent cards draw anime characters by model: Opus as Naruto, Sonnet as Demon Slayer, Haiku as One Piece.",
   "types": "./types/index.d.ts"
 }
