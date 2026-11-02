@@ -2,7 +2,7 @@ import type { AgentRow } from '../types'
 import { characterOf, drawCharacter } from './anime'
 
 /** One run of text with one style, as pill.ts draws them. */
-export type Piece = { text: string; color?: string; bg?: string; bold?: boolean }
+export type Piece = { text: string; color?: string; bg?: string; bold?: boolean; dim?: boolean }
 
 const TYPE_COLORS = ['#e8794a', '#34b98a', '#4c8df6', '#e0a43a', '#9b7bf2', '#e5534b']
 const HATS = [' ▄▄ ', '▗▄▄▖', ' ▗▖ ', '▄▀▀▄', ' ▀▀ ', '▐▀▀▌']
@@ -10,6 +10,10 @@ const HAT_COLORS = ['#c0532b', '#3b6dd8', '#e0a43a', '#7a5af0', '#2b8a63', '#d04
 const BODY = '#e8794a'
 const TRACK_BG = '#24222e'
 const SPARKS = ['·', '∙', '⋅', '˙', '✦']
+// How long a finished agent stays in the band's strip, and how long a quiet one still counts as running.
+const STRIP_HOLD_MS = 4000
+const STRIP_STALE_MS = 10 * 60_000
+const STRIP_CELL = 30 // the fewest cells one agent takes in the strip
 
 function hash(text: string): number {
   let h = 2166136261
@@ -70,6 +74,43 @@ export function modelName(model: string): string {
 export function cut(text: string, max: number): string {
   const chars = [...text]
   return chars.length <= max ? text : max <= 1 ? '' : `${chars.slice(0, max - 1).join('')}…`
+}
+
+/** An agent's status mark: a pulsing dot, a tick or a cross. */
+export function mark(a: AgentRow, now: number): Piece {
+  if (a.status === 'done') return { text: '✓', color: '#34b98a' }
+  if (a.status === 'failed') return { text: '✕', color: '#e5534b' }
+  return { text: '●', color: Math.floor(now / 500) % 2 === 0 ? '#e8794a' : '#7a3f26' }
+}
+
+/** The agents the band shows, running ones first: those at work, and those that ended a moment ago. */
+export function stripCrew(rows: readonly AgentRow[], now: number): AgentRow[] {
+  const working = rows.filter(a => a.status === 'running' && now - (a.activeAt ?? a.startedAt) < STRIP_STALE_MS)
+  const ended = rows.filter(a => a.status !== 'running' && a.endedAt !== null && now - a.endedAt < STRIP_HOLD_MS)
+  return [...working, ...ended]
+}
+
+/** How many agents fit side by side in `w` cells. */
+export const stripFits = (w: number) => Math.max(1, Math.floor(w / STRIP_CELL))
+
+/** The band's strip: agents side by side in three rows, each a critter beside its name, task and time. */
+export function strip(crew: readonly AgentRow[], w: number, now: number): Piece[][] {
+  const text = Math.floor(w / Math.max(1, crew.length)) - 7 // less the critter (4), its gap (2) and a gap before the next
+  const rows: Piece[][] = [[], [], []]
+  for (const a of crew) {
+    const critter = mascot(a, now)
+    const who = characterOf(a)
+    const lines: Piece[][] = [
+      [{ text: cut(who?.name ?? a.type, text - 2), color: who?.color ?? typeColor(a.type), bold: true }, { text: ' ' }, mark(a, now)],
+      [{ text: cut(a.title, text) }],
+      [{ text: cut(`${duration((a.endedAt ?? now) - a.startedAt)} · ${a.lastTool || 'starting'}`, text), dim: true }],
+    ]
+    lines.forEach((line, r) => {
+      const used = line.reduce((n, p) => n + [...p.text].length, 0)
+      rows[r]?.push(...(critter[r] ?? []), { text: '  ' }, ...line, { text: ' '.repeat(Math.max(0, text - used) + 1) })
+    })
+  }
+  return rows
 }
 
 /** The card's bar: full in the type's color once done, a sparkly sweep while it runs. */

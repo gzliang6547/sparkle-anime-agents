@@ -5,7 +5,8 @@
 A Claude Code mod that adds some sparkle to long-running work:
 
 - **Sparkly progress pills.** The progress band that `claude-progress` drives (from the Simple Progress Bars plugin) is redrawn as colored pills with a twinkling track, a percent, a hopping pixel mascot and a time-left estimate.
-- **An Agents pane.** Each subagent gets a live card with its title, type, model, tool calls, tokens and time. The pane opens by itself when a subagent starts; `/sparkle-agents` opens it any time.
+- **An Agents pane.** Each subagent gets a live card with its title, type, model, tool calls, tokens and time. `/sparkle-agents` opens it at any window width. It only opens by itself in a wide window: Claude Code holds back a pane nobody asked for below 144 columns, or below 110 once you've opened it yourself.
+- **A character strip above the prompt.** While subagents run, they walk along above the prompt as small characters with their task and time. In a terminal the strip steps aside when the pane is on screen; in the desktop app it always shows.
 - **Anime characters by model.** Each card's mascot is an anime character, picked by the agent's model and by what the agent is doing.
 
 ## Install
@@ -26,7 +27,7 @@ claude plugin install sparkle-progress --marketplace gzliang6547/sparkle-anime-a
 
 In the Claude desktop app: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `gzliang6547/sparkle-anime-agents`, then **Add plugin**.
 
-The Agents pane and its characters work on their own. The progress pills restyle bars that the Simple Progress Bars plugin's `claude-progress` command writes, so they appear only when that plugin is installed too.
+The Agents pane, the strip and their characters work on their own. The progress pills restyle bars that the Simple Progress Bars plugin's `claude-progress` command writes, so they appear only when that plugin is installed too.
 
 ## The cast
 

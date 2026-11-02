@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { AgentRow, Agents, Bar, Board } from '../types'
-import { bar, cut, duration, mascot, modelName, tokens, typeColor } from './agents'
+import { bar, cut, duration, mark, mascot, modelName, strip, stripCrew, stripFits, tokens, typeColor } from './agents'
 import { characterOf } from './anime'
 import { row } from './pill'
 import type { Piece } from './pill'
@@ -26,6 +26,7 @@ const ID_CHECK_TICKS = 4
 const CALL_KEEP_MS = 60_000
 const INDENT = 2
 const MAX_ROWS = 3
+const STRIP_ROWS = 3
 
 type Watch = {
   base: string | null
@@ -90,9 +91,12 @@ export const register: Register = on => {
           for (const b of expired) w.hidden.set(b.key, b.updatedAt)
           // Redraw every tick while a bar shows, so the sparkles and the critter move.
           if (bars.length > 0 || prev.bars.length > 0) await update($, board, () => ({ bars, now }))
-          // The Agents pane's clock: its times, sweeps and critters move while an agent runs.
+          // The agents' clock: times, sweeps and critters move while an agent runs, and the band's
+          // strip keeps time until a finished agent's moment there is over.
           const crew = await read($, agents)
-          if (crew.rows.some(a => a.status === 'running')) await update($, agents, s => ({ ...s, now }))
+          if (crew.rows.some(a => a.status === 'running') || stripCrew(crew.rows, crew.now).length > 0) {
+            await update($, agents, s => ({ ...s, now }))
+          }
         } finally {
           w.isBusy = false
         }
@@ -117,7 +121,7 @@ export const register: Register = on => {
       const now = await $.clock.now()
       const fresh: AgentRow = {
         id, title: e.description || e.subagentType, type: e.subagentType, model: started.model ?? '',
-        status: 'running', startedAt: now, endedAt: null, tools: 0, lastTool: '', tokens: 0,
+        status: 'running', startedAt: now, activeAt: now, endedAt: null, tools: 0, lastTool: '', tokens: 0,
       }
       // A new batch, after every earlier agent finished, starts a clean pane.
       await update($, agents, s => {
@@ -132,8 +136,9 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     const id = e.agentId
     if (id !== undefined) {
+      const now = await $.clock.now()
       await update($, agents, s => ({
-        ...s, rows: s.rows.map(a => (a.id === id ? { ...a, tools: a.tools + 1, lastTool: e.tool } : a)),
+        ...s, rows: s.rows.map(a => (a.id === id ? { ...a, tools: a.tools + 1, lastTool: e.tool, activeAt: now } : a)),
       }))
     }
     return next(e)
@@ -190,14 +195,12 @@ export const register: Register = on => {
       const color = typeColor(a.type)
       const critter = mascot(a, now)
       const who = characterOf(a)
-      const mark = a.status === 'running'
-        ? { text: '●', color: Math.floor(now / 500) % 2 === 0 ? '#e8794a' : '#7a3f26' }
-        : a.status === 'done' ? { text: '✓', color: '#34b98a' } : { text: '✕', color: '#e5534b' }
+      const status = mark(a, now)
       const info = w - 6
       const right = `${tokens(a.tokens)} · ${duration((a.endedAt ?? now) - a.startedAt)}`
       const steps = a.tools === 0 ? 'starting' : `${a.tools} tool${a.tools === 1 ? '' : 's'}${a.lastTool ? ` · ${a.lastTool}` : ''}`
       const lines: { text: string; color?: string; bold?: boolean; dim?: boolean }[][] = [
-        [{ text: cut(a.title, info - 3).padEnd(info - 2), bold: true }, { text: ` ${mark.text}`, color: mark.color }],
+        [{ text: cut(a.title, info - 3).padEnd(info - 2), bold: true }, { text: ` ${status.text}`, color: status.color }],
         [
           ...(who ? [{ text: `${who.name} `, color: who.color, bold: true }] : []),
           { text: cut(a.type, 20), color }, { text: ` ${modelName(a.model)}`, dim: true },
@@ -251,14 +254,33 @@ export const register: Register = on => {
   // Answers the band itself, without `next`: the plain bars beneath are replaced, not doubled.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const { bars, now } = await read($, board)
-    if (bars.length === 0 || e.props.hasSurvey) return next(e)
+    const team = await read($, agents)
+    if (e.props.hasSurvey) return next(e)
 
-    const { Box, Text } = $.ui.resolve(e)
+    // A terminal's pane is known to be on screen, so it stands in for the strip. Whether a desktop
+    // window paints a placed pane can't be told from here, so there the strip shows regardless.
+    const hasPane = e.surface === 'terminal' && (await $.ui.panes()).some(p => p.id === PANE && p.isPlaced && p.isShown)
+    const crew = hasPane ? [] : stripCrew(team.rows, team.now)
     const width = e.props.bodyColumns - INDENT - 1
     const shown = bars.slice(0, Math.min(MAX_ROWS, e.props.maxRows))
     const more = bars.length - shown.length
+    const beside = crew.slice(0, stripFits(width))
+    const unseen = crew.length - beside.length
+    const hasRoom = e.props.maxRows - shown.length - (more > 0 ? 1 : 0) >= STRIP_ROWS + (unseen > 0 ? 1 : 0)
+    const lines = beside.length > 0 && hasRoom ? strip(beside, width, team.now) : []
+    if (shown.length === 0 && lines.length === 0) return next(e)
+
+    const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
+        {lines.map((line, r) => (
+          <Box key={`strip${r}`} flexDirection="row" paddingLeft={INDENT}>
+            {line.map((p: Piece, i) => (
+              <Text key={String(i)} color={p.color} backgroundColor={p.bg} bold={p.bold} dimColor={p.dim} wrap="truncate">{p.text}</Text>
+            ))}
+          </Box>
+        ))}
+        {lines.length > 0 && unseen > 0 ? <Box key="unseen" paddingLeft={INDENT}><Text dimColor>+{unseen} more · /sparkle-agents</Text></Box> : null}
         {shown.map(bar => (
           <Box key={bar.key} flexDirection="row" paddingLeft={INDENT}>
             {row(bar, width, now).map((p: Piece, i) => (

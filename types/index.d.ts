@@ -48,6 +48,8 @@ export type AgentRow = {
   model: string
   status: 'running' | 'done' | 'failed'
   startedAt: number
+  /** Its latest sign of life: its start or its last tool call. */
+  activeAt?: number
   endedAt: number | null
   /** Tool calls its loop made, and the last tool's name. */
   tools: number
